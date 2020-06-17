@@ -1,0 +1,252 @@
+formatVersion: 1
+name: Kubernetes - 1-Master/N-Workers (Ansible)
+version: 1
+inputs:
+  workerNodes:
+    type: integer
+    minimum: 1
+    maximum: 3
+  clusterName:
+    type: string
+resources:
+  Worker3:
+    type: Cloud.Machine
+    dependsOn:
+      - Master-01-Config
+    metadata:
+      layoutPosition:
+        - 2
+        - 1
+    properties:
+      count: '${input.workerNodes >= 3 ? 1 : 0}'
+      imageRef: temp-ubuntu-1804
+      name: '${''worker-'' + input.clusterName + ''-03''}'
+      flavor: medium
+      customizationSpec: k8s-ubuntu
+      storage:
+        constraints:
+          - tag: 'env:vc'
+      constraints:
+        - tag: 'env:vc'
+      networks:
+        - network: '${resource.MGMT_NET.id}'
+          assignment: static
+          deviceIndex: 0
+        - network: '${resource.POD_TRANSIT_NET.id}'
+          assignment: dynamic
+          deviceIndex: 1
+          tags:
+            - key: ncp/cluster
+              value: '${input.clusterName}'
+            - key: ncp/node_name
+              value: '${"worker-" + input.clusterName + "-03"}'
+  Worker2:
+    type: Cloud.Machine
+    dependsOn:
+      - Master-01-Config
+    metadata:
+      layoutPosition:
+        - 2
+        - 2
+    properties:
+      count: '${input.workerNodes >= 2 ? 1 : 0}'
+      imageRef: temp-ubuntu-1804
+      name: '${"worker-" + input.clusterName + "-02"}'
+      flavor: medium
+      customizationSpec: k8s-ubuntu
+      storage:
+        constraints:
+          - tag: 'env:vc'
+      constraints:
+        - tag: 'env:vc'
+      networks:
+        - network: '${resource.MGMT_NET.id}'
+          assignment: static
+          deviceIndex: 0
+        - network: '${resource.POD_TRANSIT_NET.id}'
+          assignment: dynamic
+          deviceIndex: 1
+          tags:
+            - key: ncp/cluster
+              value: '${input.clusterName}'
+            - key: ncp/node_name
+              value: '${"worker-" + input.clusterName + "-02"}'
+  Worker1:
+    type: Cloud.Machine
+    dependsOn:
+      - Master-01-Config
+    metadata:
+      layoutPosition:
+        - 2
+        - 3
+    ignoreChanges: true
+    properties:
+      imageRef: temp-ubuntu-1804
+      name: '${"worker-" + input.clusterName + "-01"}'
+      flavor: medium
+      customizationSpec: k8s-ubuntu
+      storage:
+        constraints:
+          - tag: 'env:vc'
+      constraints:
+        - tag: 'env:vc'
+      networks:
+        - network: '${resource.MGMT_NET.id}'
+          assignment: static
+          deviceIndex: 0
+        - network: '${resource.POD_TRANSIT_NET.id}'
+          assignment: dynamic
+          deviceIndex: 1
+          tags:
+            - key: ncp/cluster
+              value: '${input.clusterName}'
+            - key: ncp/node_name
+              value: '${"worker-" + input.clusterName + "-01"}'
+  Master:
+    type: Cloud.Machine
+    metadata:
+      layoutPosition:
+        - 2
+        - 4
+    ignoreChanges: true
+    properties:
+      imageRef: temp-ubuntu-1804
+      name: '${"master-" + input.clusterName + "-01"}'
+      flavor: medium
+      customizationSpec: k8s-ubuntu
+      constraints:
+        - tag: 'env:vc'
+      networks:
+        - network: '${resource.MGMT_NET.id}'
+          assignment: static
+          deviceIndex: 0
+        - network: '${resource.POD_TRANSIT_NET.id}'
+          assignment: dynamic
+          deviceIndex: 1
+          tags:
+            - key: ncp/cluster
+              value: '${input.clusterName}'
+            - key: ncp/node_name
+              value: '${"master-" + input.clusterName + "-01"}'
+  MGMT_NET:
+    type: Cloud.NSX.Network
+    metadata:
+      layoutPosition:
+        - 0
+        - 0
+    properties:
+      name: '${input.clusterName + "-mgmt_net"}'
+      networkType: routed
+      constraints:
+        - tag: 'ncp:enabled'
+  POD_TRANSIT_NET:
+    type: Cloud.NSX.Network
+    metadata:
+      layoutPosition:
+        - 1
+        - 0
+    properties:
+      networkType: private
+      name: '${input.clusterName + "-pod_transit_net"}'
+  Worker-03-Config:
+    type: Cloud.Ansible
+    metadata:
+      layoutPosition:
+        - 2
+        - 0
+    properties:
+      count: '${input.workerNodes >= 3 ? 1 : 0}'
+      inventoryFile: /etc/ansible/hosts
+      username: root
+      hostVariables:
+        deploymentName: '${env.deploymentName}'
+      playbooks:
+        provision:
+          - /home/ansible/playbooks/ncp/kubernetes-worker.yml
+      osType: linux
+      groups:
+        - KubeW
+      maxConnectionRetries: 10
+      host: '${resource.Worker3.*}'
+      account: ansible-01
+      password: VMware1!
+  Worker-02-Config:
+    type: Cloud.Ansible
+    metadata:
+      layoutPosition:
+        - 2
+        - 5
+    properties:
+      count: '${input.workerNodes >= 2 ? 1 : 0}'
+      inventoryFile: /etc/ansible/hosts
+      username: root
+      hostVariables:
+        deploymentName: '${env.deploymentName}'
+      playbooks:
+        provision:
+          - /home/ansible/playbooks/ncp/kubernetes-worker.yml
+      osType: linux
+      groups:
+        - KubeW
+      maxConnectionRetries: 10
+      host: '${resource.Worker2.*}'
+      account: ansible-01
+      password: VMware1!
+  Worker-01-Config:
+    type: Cloud.Ansible
+    metadata:
+      layoutPosition:
+        - 2
+        - 6
+    properties:
+      inventoryFile: /etc/ansible/hosts
+      username: root
+      hostVariables:
+        deploymentName: '${env.deploymentName}'
+      playbooks:
+        provision:
+          - /home/ansible/playbooks/ncp/kubernetes-worker.yml
+      osType: linux
+      groups:
+        - KubeW
+      maxConnectionRetries: 10
+      host: '${resource.Worker1.*}'
+      account: ansible-01
+      password: VMware1!
+  Master-01-Config:
+    type: Cloud.Ansible
+    metadata:
+      layoutPosition:
+        - 2
+        - 7
+    properties:
+      inventoryFile: /etc/ansible/hosts
+      username: root
+      hostVariables:
+        deploymentName: '${env.deploymentName}'
+        ADAPTER_NAME_FOR_POD_TRANSIT: ens224
+        K8S_CLUSTER_NAME: '${input.clusterName}'
+        NSX_MANAGER_IPS: 'X.X.X.X,Y.Y.Y.Y,Z.Z.Z.Z'
+        NSX_API_ADMIN_PASSWORD: VMware1!VMware1!
+        NS_SUBNET_PREFIX: '27'
+        LB_ALGORITHM: ROUND_ROBIN
+        LB_SIZE: SMALL
+        CONTAINER_IP_BLOCKS: xxx-xxxx-xxxx-xxxx-xxxx,yyyy-yyyy-yyyy-yyyy-yyyy
+        VIP_IP_POOLS: xxx-xxxx-xxxx-xxxx-xxxx,yyyy-yyyy-yyyy-yyyy-yyyy
+        T0_ID: xxx-xxxx-xxxx-xxxx-xxxx
+        OVERLAY_TZ: xxx-xxxx-xxxx-xxxx-xxxx
+        DNS_SERVERS: 8.8.8.8
+        EDGE_CLUSTER_ID: xxx-xxxx-xxxx-xxxx-xxxx
+        K8S_API_SERVER_IP: '${resource.Master.address}'
+        CONTAINER_NAME: nsx-ncp-ubuntu
+        CONTAINER_TAG: 3.0.1.16118386
+      playbooks:
+        provision:
+          - /home/ansible/playbooks/ncp/kubernetes-master.yml
+      osType: linux
+      groups:
+        - KubeM
+      maxConnectionRetries: 10
+      host: '${resource.Master.*}'
+      account: ansible-01
+      password: VMware1!
